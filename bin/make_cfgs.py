@@ -40,12 +40,12 @@ parser = argparse.ArgumentParser(description=description,
         formatter_class=argparse.RawDescriptionHelpFormatter)
 
 
-def reversed_ip(ip):
+def reverse_ip(ip):
     return '.'.join(reversed(ip.split('.')))
 
 # get host name from probably fqdn
-def hn(name):
-    return name.split('.')[0]
+def short_hostname(fqdn):
+    return fqdn.split('.')[0]
 
 
 # hardcoded but should be parametrized
@@ -93,59 +93,60 @@ for n in nodes:
     
     if n['ip_type'] == 'dynamic':
         pxe_node_lines.append("dhcp-host={},{},{}"
-                          .format(n['mac'], hn(n['node']), n['ip']))
+                          .format(n['mac'], short_hostname(n['node']), n['ip']))
         pxe_node_ptr_lines.append("ptr-record={}.in-addr.arpa,{}.{}"
-                              .format(reversed_ip(n['ip']),
-                                      hn(n['node']),
+                              .format(reverse_ip(n['ip']),
+                                      short_hostname(n['node']),
                                       domain))
 
     if n['bmc_ip_type'] == 'dynamic':
-        pxe_node_lines.append("dhcp-host={},{}-bmc,{}"
-                          .format(n['bmc_mac'], hn(n['node']), n['bmc_ip']))
-        pxe_node_ptr_lines.append("ptr-record={}.in-addr.arpa,{}-bmc.{}"
-                              .format(reversed_ip(n['bmc_ip']),
-                                      hn(n['node']),
-                                      domain
+        pxe_node_lines.append(
+                "dhcp-host={mac},{hostname}-bmc,{ip}"
+                          .format(mac=n['bmc_mac'],
+                                    hostname=short_hostname(n['node']),
+                                    ip=n['bmc_ip']))
+        pxe_node_ptr_lines.append(
+                "ptr-record={ip}.in-addr.arpa,{hostname}-bmc.{domain}"
+                              .format(ip=reverse_ip(n['bmc_ip']),
+                                      hostname=short_hostname(n['node']),
+                                      domain=domain
                                       ))
 
     if ('hsm_ip_type' in n.keys()) and (n['hsm_ip_type'] == 'dynamic'):
         pxe_node_lines.append("dhcp-host={},{}-hsm,{}"
-                          .format(n['hsm_mac'], hn(n['node']), n['hsm_ip']))
+                          .format(n['hsm_mac'], short_hostname(n['node']), n['hsm_ip']))
         pxe_node_ptr_lines.append("ptr-record={}.in-addr.arpa,{}-hsm"
-                              .format(reversed_ip(n['hsm_ip']), hn(n['node'])))
+                              .format(reverse_ip(n['hsm_ip']), short_hostname(n['node'])))
 
     consoles = consoles +\
                "\nCONSOLE name=\"{}\" IPMIOPTS=\"U:{},P:{}\" dev=\"ipmi:{}\""\
-                   .format(hn(n['node']), bmc_user, bmc_pass, n['bmc_ip'])
+                   .format(short_hostname(n['node']), bmc_user, bmc_pass, n['bmc_ip'])
     roster_recors = roster_recors +\
                     n['node']+":\n" +\
                     "  host: " + n['ip'] + "\n" +\
                     "  user: root\n"
     if 't_exclude' in n.keys() and n['t_exclude'] != 'yes':
         sql_update_body = [
-                "'" + n['node'] + "'",
-                "'" + n['t_machine_type'] + "'",
-                "'" + n['mac'] + "'",
+                "'%s'" % n['node'] ,
+                "'%s'" % n['t_machine_type'] ,
+                "'%s'" % n['mac'],
                 "'f'",
                 "'f'",
                 "'x86-64'",
-                "'" + n['comment'] + "'",
+                "'%s'" % n['comment']
             ]
         nodes_sql_lines.append(
             sql_line_prefix +\
             " ( " + " , ".join(sql_update_body) + " ) ;\n"
-            #+\
-            #" WHERE name     = '" + n['node'] + "' ;\n"
         )
 
-# ----------- pxe ---------------
+
 with open(target_dir_prefix + pxe_output_file, 'w') as ofile:
-    ofile.write("\n".join(pxe_node_lines)+"\n")    
+    ofile.write("\n".join(pxe_node_lines)+"\n")
     ofile.write("\n".join(pxe_node_ptr_lines)+"\n")
 print("File [{}] written".format(target_dir_prefix +
                                     pxe_output_file))
 
-# ----------- conman ---------------
 lines = ""
 with open(target_dir_prefix + conman_tmpl, "r") as cf:
     for line in cf:
@@ -156,13 +157,9 @@ with open(target_dir_prefix + conman_cfg, 'w') as ofile:
     ofile.write(lines)
 print("File [{}] written".format(target_dir_prefix + conman_cfg))
 
-# ----------- roster ---------------
-
 with open(target_dir_prefix + roster_file, 'w') as ofile:
     ofile.write(roster_recors)
 print("File [{}] written".format(target_dir_prefix + roster_file))
-
-# ----------- sql file ---------------
 
 with open(target_dir_prefix + sql_script_file, 'w') as ofile:
     ofile.write("".join(nodes_sql_lines))
