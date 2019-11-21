@@ -90,14 +90,17 @@ nodes_sql_lines = []
 
 for n in nodes:
     print('Process node' + n['node'])
-    
+
     if n['ip_type'] == 'dynamic':
-        pxe_node_lines.append("dhcp-host={},{},{}"
-                          .format(n['mac'], short_hostname(n['node']), n['ip']))
-        pxe_node_ptr_lines.append("ptr-record={}.in-addr.arpa,{}.{}"
-                              .format(reverse_ip(n['ip']),
-                                      short_hostname(n['node']),
-                                      domain))
+        pxe_node_lines.append("dhcp-host={mac},{hostname},{ip}"
+                          .format(mac=n['mac'],
+                                hostname=short_hostname(n['node']),
+                                ip=n['ip']))
+        pxe_node_ptr_lines.append(
+                    "ptr-record={rip}.in-addr.arpa,{hostname}.{domain}"
+                              .format(rip=reverse_ip(n['ip']),
+                                      hostname=short_hostname(n['node']),
+                                      domain=domain))
 
     if n['bmc_ip_type'] == 'dynamic':
         pxe_node_lines.append(
@@ -113,18 +116,23 @@ for n in nodes:
                                       ))
 
     if ('hsm_ip_type' in n.keys()) and (n['hsm_ip_type'] == 'dynamic'):
-        pxe_node_lines.append("dhcp-host={},{}-hsm,{}"
-                          .format(n['hsm_mac'], short_hostname(n['node']), n['hsm_ip']))
-        pxe_node_ptr_lines.append("ptr-record={}.in-addr.arpa,{}-hsm"
-                              .format(reverse_ip(n['hsm_ip']), short_hostname(n['node'])))
+        pxe_node_lines.append("dhcp-host={mac},{hostname}-hsm,{ip}"
+                          .format(mac=n['hsm_mac'],
+                                hostname=short_hostname(n['node']),
+                                ip=n['hsm_ip']))
+        pxe_node_ptr_lines.append("ptr-record={rip}.in-addr.arpa,{hostname}-hsm"
+                              .format(
+                                rip=reverse_ip(n['hsm_ip']),
+                                hostname=short_hostname(n['node'])))
 
     consoles = consoles +\
-               "\nCONSOLE name=\"{}\" IPMIOPTS=\"U:{},P:{}\" dev=\"ipmi:{}\""\
-                   .format(short_hostname(n['node']), bmc_user, bmc_pass, n['bmc_ip'])
-    roster_recors = roster_recors +\
-                    n['node']+":\n" +\
-                    "  host: " + n['ip'] + "\n" +\
-                    "  user: root\n"
+               "\nCONSOLE name=\"{hostname}\" IPMIOPTS=\"U:{user},P:{passwd}\" dev=\"ipmi:{ip}\""\
+                   .format(hostname=short_hostname(n['node']),
+                        user=bmc_user,
+                        passwd=bmc_pass,
+                        ip=n['bmc_ip'])
+    roster_recors = roster_recors +"{fqdn}:\n  host: {ip}\n  user: root\n".\
+                    format(fqdn=n['node'], ip=n['ip'])
     if 't_exclude' in n.keys() and n['t_exclude'] != 'yes':
         sql_update_body = [
                 "'%s'" % n['node'] ,
