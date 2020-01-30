@@ -31,6 +31,17 @@ class pxelinux_cfg_test(unittest.TestCase):
         self.assertEqual(cmd,
         'salt-ssh -i --roster-file deploy.roster -c . --no-host-keys --key-deploy --passwd ssh_pass "test_node"  state.apply test_sls -l debug')
 
+    def test_read_last_meaningful_line(self):
+        line = hw_node.read_last_meaningful_line('test/conman_file.1')
+        print("\n line1 = " + line + "\n")
+        self.assertEqual(0,line.index(
+            '2020-01-29 16:57:47 ^[[19;1HSATA^[[19;6HPort^'))
+        line = hw_node.read_last_meaningful_line('test/conman_file.2')
+        print("\n line2 = " + line + "\n")
+        self.assertEqual(0,line.index(
+            '2020-01-29 21:20:32 Welcome to openSUSE'))
+
+
 
     #TODO should be used when conman suppot added to teuthology
     #def test_hw_conman(self):

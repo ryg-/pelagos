@@ -3,6 +3,7 @@ from node import LocalNode
 import os
 import logging
 import network_manager
+import re
 
 logging.basicConfig(format='%(asctime)s | %(name)s | %(message)s',
                     level=logging.DEBUG)
@@ -84,7 +85,25 @@ def power_cycle(node):
 #
 #
 # localhost login
+
+# function return last non empty and not service conman line
+def read_last_meaningful_line(filepath):
+    tail = LocalNode()
+    res = tail.shell('tail -n 100 ' + filepath,
+                    stop=True, quiet=True, die=False)
+    for str in reversed(tail.stdout.rstrip().splitlines()):
+        if not (str is '' or
+            str.startswith('<ConMan> Console') or
+            re.search("\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d\s*$" , str)):
+            return str
+    return 'no_meaningful_line_found'
+
+
+
 def wait_node_is_ready(node, timeout=5, attempts=120):
+    #first 5 min just monitor that boot passed hw initialization
+
+    #wait for port
     local = LocalNode()
     local.wait_for_port(host=node['ip'], timeout=timeout, attempts=attempts)
 
