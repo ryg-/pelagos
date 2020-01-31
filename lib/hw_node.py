@@ -4,12 +4,14 @@ import os
 import logging
 import network_manager
 import re
+import time
 
 logging.basicConfig(format='%(asctime)s | %(name)s | %(message)s',
                     level=logging.DEBUG)
 
 conman_server = ''
 ipmitool_bin = 'ipmitool'
+conman_log_prefix = '/var/log/conman/console.'
 conman_bin = 'conman'
 ipmi_user = ''
 ipmi_pass = ''
@@ -17,6 +19,13 @@ target_pass =''
 roster_file = 'deploy.roster'
 salt_cfg_dir  = '.'
 sls_list = []
+
+class TimeoutException(Exception):
+   """Raised when node cannot be achieve in time"""
+   pass
+class CannotBootException(Exception):
+   """Raised when node conman log freeze in middle of boot"""
+   pass
 
 def init():
     global ipmi_user
@@ -79,15 +88,12 @@ def power_cycle(node):
                    local.stderr))
 
 
-# current output after boot
-# -----------------------
-# Welcome to openSUSE Leap 15.0 - Kernel 4.12.14-lp150.11-default (ttyS1).
-#
-#
-# localhost login
-
-# function return last non empty and not service conman line
 def read_last_meaningful_line(filepath):
+    """Return last non empty and not auxillary conman line
+        filepath: path to file for finding last line
+        Function is using some magic string which are defined
+        in conman.
+    """
     tail = LocalNode()
     res = tail.shell('tail -n 100 ' + filepath,
                     stop=True, quiet=True, die=False)
@@ -98,15 +104,60 @@ def read_last_meaningful_line(filepath):
             return str
     return 'no_meaningful_line_found'
 
+def cold_restart(mode):
+    pass
 
+def wait_node_is_ready(node,
+                        timeout=900,
+                        conman_line_max_age=240,
+                        max_cold_restart=3,
+                        port_lookup=22,
+                        port_lookup_timeout=5,
+                        port_lookup_attempts=6 ):
+    """ Return sign if node booted or not in timeout
+        timeout=overall timeout for node boot and start ssh
+        (ssh starts after end of kiwi provisioning)
+    """
+    starttime = time.time()
+    conman_line = 'start_line'
+    conman_line_time = time.time()
+    conmanfile = conman_log_prefix + node['node'].split('.')[0]
+    cold_restart_count = 0
 
-def wait_node_is_ready(node, timeout=5, attempts=120):
-    #first 5 min just monitor that boot passed hw initialization
-
-    #wait for port
     local = LocalNode()
-    local.wait_for_port(host=node['ip'], timeout=timeout, attempts=attempts)
+    while starttime+timeout > time.time():
 
+        # check last line in conman log
+        new_conman_line = read_last_meaningful_line(conmanfile)
+        if conman_line != new_conman_line:
+            logging.debug("New log detected:"+new_conman_line)
+            conman_line = new_conman_line
+            conman_line_time = time.time()
+        if (time.time() - conman_line_time) > conman_line_max_age:
+            logging.info("Node boot failure detected, make cold restart")
+            cold_restart(node)
+            cold_restart_count += 1
+            if cold_restart_count <= max_cold_restart:
+                logging.error(
+                "Achieved max cold restart couter for %s,throws exception"
+                        % node['node'])
+                raise CannotBootException("max cold restart couter for %s" % node['node'])
+            next
+
+        #check port status
+        try:
+            local.wait_for_port(host=node['ip'],
+                            port = port_lookup,
+                            timeout=port_lookup_timeout,
+                            attempts=port_lookup_attempts)
+            logging.debug("Connected to node %s " % node['node'])
+            return True
+        except:
+            logging.debug("Cannot connect to port")
+    logging.error("Node {} have not started in timeout {}".format(
+                    timeout, node['node']))
+    raise TimeoutException("{} have not started in timeout {}".format(
+                    node['node'], timeout))
 
 def minimal_needed_configuration(node, timeout=60):
     for sls in sls_list:

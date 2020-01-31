@@ -241,7 +241,8 @@ def provision_node(node, os_id):
     hw_node.power_cycle(node)
     time.sleep(30)
     hw_node.wait_node_is_ready(node)
-    hw_node.minimal_needed_configuration(node)
-    # #pxelinux_cfg.cleanup_tftp_dir(node)
+    if not (os_id == id_local_boot or
+            os_id == id_maintenance_boot):
+        hw_node.minimal_needed_configuration(node)
     set_tftp_dir(node, id_local_boot)
     return 1
