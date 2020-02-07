@@ -4,6 +4,7 @@ import os
 import logging
 import network_manager
 import re
+import sys
 import time
 
 logging.basicConfig(format='%(asctime)s | %(name)s | %(message)s',
@@ -25,6 +26,9 @@ class TimeoutException(Exception):
    pass
 class CannotBootException(Exception):
    """Raised when node conman log freeze in middle of boot"""
+   pass
+class BMCException(Exception):
+   """Raised when BMC operation failed"""
    pass
 
 def init():
@@ -52,7 +56,7 @@ def init():
             network_manager.get_option('sls_list').split(',')]
 
 
-def get_ipmi_cycle_cmd(ip, user='', passwd=''):
+def  get_ipmi_cycle_cmd(ip, user='', passwd=''):
     if not user:
         user = ipmi_user
     if not passwd:
@@ -76,12 +80,15 @@ def get_salt_cmd(sls, node):
 def power_cycle(node):
     cmd = get_ipmi_cycle_cmd(node['bmc_ip'])
     local = LocalNode()
-    local.shell(cmd, trace=True)
+    try:
+        local.shell(cmd, trace=True)
+    except:
+        BMCException(sys.exc_info()[1])
     if local.status == 0:
         print("node restarted")
         # TODO check retrun results from results
     else:
-        raise Exception(
+        raise BMCException(
             "ipmitool call failed with status[{}], stdout [{}], stderr[{}]".
             format(local.status,
                    local.stdout.rstrip(),
@@ -153,11 +160,10 @@ def wait_node_is_ready(node,
             logging.debug("Connected to node %s " % node['node'])
             return True
         except:
-            logging.debug("Cannot connect to port")
-    logging.error("Node {} have not started in timeout {}".format(
-                    timeout, node['node']))
-    raise TimeoutException("{} have not started in timeout {}".format(
-                    node['node'], timeout))
+            logging.error("Node {} have not started in timeout {}".format(
+                timeout, node['node']))
+            raise TimeoutException("{} have not started in timeout {}".format(
+                node['node'], timeout))
 
 def minimal_needed_configuration(node, timeout=60):
     for sls in sls_list:

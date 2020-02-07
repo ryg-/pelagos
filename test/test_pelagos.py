@@ -11,6 +11,7 @@ import flask_tasks
 
 import network_manager
 import pelagos
+import hw_node
 import pxelinux_cfg
 
 logging.basicConfig(format='%(asctime)s | %(name)s | %(message)s',
@@ -188,6 +189,43 @@ class pelagosTest(unittest.TestCase):
         logging.debug(response_2.get_data())
         self.assertRegex(response_2.get_data(as_text=True),
                          "No\s+node\s+\[not_exists_test_node\]\s+found")
+
+        #ipmi failure
+        hw_node.ipmi_pass='nopass'
+        hw_node.ipmi_user='nouser'
+
+        location, id = self.do_flask_task_request(
+            '/node/provision',
+            {'os':'oem-sle_15sp1-0.1.1',
+                'node':'test_node'},
+                'provision timeout test')
+        time.sleep(30)
+        response_3 = self.app.get(location)
+        logging.debug('next level response headers #3')
+        logging.debug(response_3.get_data())
+        self.assertRegex(response_3.get_data(as_text=True),
+                         '501 Not Implemented')
+
+        #provision timeout
+        #pelagos.app.simulate_mode='provision_timeout'
+        hw_node.ipmi_pass='nopass'
+        hw_node.ipmi_user='nouser'
+        hw_node.ipmitool_bin='echo'
+        pxelinux_cfg.wait_node_is_ready_timeout=5
+
+        location, id = self.do_flask_task_request(
+            '/node/provision',
+            {'os':'oem-sle_15sp1-0.1.1',
+                'node':'test_node'},
+                'provision timeout test')
+        time.sleep(30)
+        response_3 = self.app.get(location)
+        logging.debug('next level response headers #3')
+        logging.debug(response_3.get_data())
+        self.assertRegex(response_3.get_data(as_text=True),
+                         '501 Not Implemented')
+
+
 
 
     def test_pxe_provision_node_threaded(self):

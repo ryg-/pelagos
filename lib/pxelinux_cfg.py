@@ -12,7 +12,7 @@ import network_manager
 
 id_local_boot = 'local'
 id_maintenance_boot = 'maintenance_image'
-
+wait_node_is_ready_timeout=900
 #tftp_dir= '/srv/tftpboot/pxelinux.cfg'
 tftp_cfg_dir = '/srv/tftpboot'
 pxelinux_cfg_dir = tftp_cfg_dir + '/pxelinux.cfg'
@@ -227,20 +227,26 @@ def refresh_mainmenu():
                          disto_menu)
 
 def provision_node_simulate_fast(node, os_id):
-    logging.debug("********************** simulating fast provisioning ******************************")
+    logging.debug("********************** simulating fast provisioning")
     time.sleep(3)
     return 1
 
 def provision_node_simulate(node, os_id):
-    logging.debug("********************** simulating 20 sec provisioning ******************************")
+    logging.debug("********************** simulating 20 sec provisioning")
     time.sleep(20)
     return 1
+
+def provision_node_simulate(node, os_id):
+    logging.debug("********************** simulating provisioning timeout")
+    #time.sleep(2)
+    raise TimeoutException("A node have not started in timeout (test mode)")
+
 
 def provision_node(node, os_id):
     set_tftp_dir(node, os_id)
     hw_node.power_cycle(node)
     time.sleep(30)
-    hw_node.wait_node_is_ready(node)
+    hw_node.wait_node_is_ready(node,timeout=wait_node_is_ready_timeout)
     if not (os_id == id_local_boot or
             os_id == id_maintenance_boot):
         hw_node.minimal_needed_configuration(node)

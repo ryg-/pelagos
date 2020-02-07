@@ -153,12 +153,29 @@ def provision_node():
         'Provision node [{}]  with OS [{}]'.format(node_id, os))
     node = _check_input_node(node_id)
     os_id = _check_input_os(os)
-    if app.simulate_mode == 'fast':
-        pxelinux_cfg.provision_node_simulate_fast(node,os)
-    elif app.simulate_mode == 'medium':
-        pxelinux_cfg.provision_node_simulate(node, os)
-    else:
-        pxelinux_cfg.provision_node(node, os)
+    try:
+        if app.simulate_mode == 'fast':
+            pxelinux_cfg.provision_node_simulate_fast(node,os)
+        elif app.simulate_mode == 'medium':
+            pxelinux_cfg.provision_node_simulate(node, os)
+        else:
+            pxelinux_cfg.provision_node(node, os)
+    except hw_node.TimeoutException as tmt_excp:
+        msg_tmt_excp= 'Caught TimeoutException %s' % tmt_excp
+        app.logger.info()
+        abort(504, msg_tmt_excp)
+    except hw_node.CannotBootException as boot_excp:
+        msg_boot_excp = 'Caught CannotBootException %s' % boot_excp
+        app.logger.info(msg_boot_excp)
+        abort(502, msg_boot_excp)
+    except hw_node.BMCException as bmc_excp:
+        msg_bmc_excp = 'Caught BMCException %s' % bmc_excp
+        app.logger.info(msg_bmc_excp)
+        abort(502, msg_bmc_excp)
+    except:
+        msg = "Oops! %s occured." % sys.exc_info()[1]
+        app.logger.info(msg)
+        abort(501, msg)
     return jsonify({'status': 'done',
                     'node': node,
                     'os': os_id})
