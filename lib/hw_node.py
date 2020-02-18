@@ -20,6 +20,9 @@ target_pass =''
 roster_file = 'deploy.roster'
 salt_cfg_dir  = '.'
 sls_list = []
+default_port_lookup_timeout = 5
+default_port_lookup_attempts = 6
+default_conman_line_max_age = 240
 
 class TimeoutException(Exception):
    """Raised when node cannot be achieve in time"""
@@ -116,28 +119,34 @@ def cold_restart(mode):
 
 def wait_node_is_ready(node,
                         timeout=900,
-                        conman_line_max_age=240,
+                        conman_line_max_age=None,
                         max_cold_restart=3,
                         port_lookup=22,
-                        port_lookup_timeout=5,
-                        port_lookup_attempts=6 ):
+                        port_lookup_timeout=None,
+                        port_lookup_attempts=None ):
     """ Return sign if node booted or not in timeout
         timeout=overall timeout for node boot and start ssh
         (ssh starts after end of kiwi provisioning)
     """
+    if port_lookup_timeout is None:
+        port_lookup_timeout = default_port_lookup_timeout
+    if port_lookup_attempts is None:
+        port_lookup_attempts = default_port_lookup_attempts
+    if conman_line_max_age is None:
+        conman_line_max_age =  default_conman_line_max_age
+
     starttime = time.time()
     conman_line = 'start_line'
     conman_line_time = time.time()
     conmanfile = conman_log_prefix + node['node'].split('.')[0]
     cold_restart_count = 0
 
-    local = LocalNode()
     while starttime+timeout > time.time():
 
         # check last line in conman log
         new_conman_line = read_last_meaningful_line(conmanfile)
         if conman_line != new_conman_line:
-            logging.debug("New log detected:"+new_conman_line)
+            #logging.debug("New log detected:"+new_conman_line)
             conman_line = new_conman_line
             conman_line_time = time.time()
         if (time.time() - conman_line_time) > conman_line_max_age:
@@ -146,13 +155,16 @@ def wait_node_is_ready(node,
             cold_restart_count += 1
             if cold_restart_count <= max_cold_restart:
                 logging.error(
-                "Achieved max cold restart couter for %s,throws exception"
-                        % node['node'])
-                raise CannotBootException("max cold restart couter for %s" % node['node'])
+                "Achieved max cold restart couter %s for node %s,throws exception"
+                        % (max_cold_restart, node['node']))
+                raise CannotBootException("max cold restart couter (%s) for %s" %
+                         (max_cold_restart, node['node']))
             next
 
         #check port status
         try:
+            logging.debug("timeout=" + str(port_lookup_timeout))
+            local = LocalNode()
             local.wait_for_port(host=node['ip'],
                             port = port_lookup,
                             timeout=port_lookup_timeout,
@@ -161,9 +173,10 @@ def wait_node_is_ready(node,
             return True
         except:
             logging.error("Node {} have not started in timeout {}".format(
-                timeout, node['node']))
-            raise TimeoutException("{} have not started in timeout {}".format(
-                node['node'], timeout))
+                node['node'], port_lookup_timeout))
+
+    raise TimeoutException("{} have not started in timeout {}".format(
+        node['node'], timeout))
 
 def minimal_needed_configuration(node, timeout=60):
     for sls in sls_list:

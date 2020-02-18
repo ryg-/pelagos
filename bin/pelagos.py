@@ -149,6 +149,9 @@ def provision_node():
     app.logger.info("Data for provision: [" + str(request.get_data(as_text=True)) + "]")
     os = request.form['os']
     node_id = request.form['node']
+    add_sls = ''
+    if 'add_sls' in request.form:
+        add_sls = request.form['add_sls']
     app.logger.info(
         'Provision node [{}]  with OS [{}]'.format(node_id, os))
     node = _check_input_node(node_id)
@@ -162,7 +165,7 @@ def provision_node():
             pxelinux_cfg.provision_node(node, os)
     except hw_node.TimeoutException as tmt_excp:
         msg_tmt_excp= 'Caught TimeoutException %s' % tmt_excp
-        app.logger.info()
+        app.logger.info(msg_tmt_excp)
         abort(504, msg_tmt_excp)
     except hw_node.CannotBootException as boot_excp:
         msg_boot_excp = 'Caught CannotBootException %s' % boot_excp
