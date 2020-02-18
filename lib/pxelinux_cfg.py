@@ -243,13 +243,13 @@ def provision_node_simulate(node, os_id):
     raise TimeoutException("A node have not started in timeout (test mode)")
 
 
-def provision_node(node, os_id):
+def provision_node(node, os_id, add_sls=[]):
     set_tftp_dir(node, os_id)
     hw_node.power_cycle(node)
     time.sleep(default_undoubted_hw_start_timeout)
     hw_node.wait_node_is_ready(node,timeout=wait_node_is_ready_timeout)
     if not (os_id == id_local_boot or
             os_id == id_maintenance_boot):
-        hw_node.minimal_needed_configuration(node)
+        hw_node.minimal_needed_configuration(node, add_sls=add_sls)
     set_tftp_dir(node, id_local_boot)
     return 1

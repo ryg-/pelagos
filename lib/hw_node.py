@@ -22,7 +22,7 @@ salt_cfg_dir  = '.'
 sls_list = []
 default_port_lookup_timeout = 5
 default_port_lookup_attempts = 6
-default_conman_line_max_age = 240
+default_conman_line_max_age = 120
 
 class TimeoutException(Exception):
    """Raised when node cannot be achieve in time"""
@@ -178,7 +178,9 @@ def wait_node_is_ready(node,
     raise TimeoutException("{} have not started in timeout {}".format(
         node['node'], timeout))
 
-def minimal_needed_configuration(node, timeout=60):
+def minimal_needed_configuration(node, timeout=60, add_sls=[]):
+    sls_list.extend(add_sls)
+    logging.debug('Executing salt script[{}]'.format(sls_list))
     for sls in sls_list:
         local = LocalNode()
         local.pwd()
@@ -186,5 +188,6 @@ def minimal_needed_configuration(node, timeout=60):
         print('Status:', local.status)
         print('Output:', local.stdout.rstrip())
         print('Errors:', local.stderr)
+    logging.debug('Executed salt script[{}]'.format(sls_list))
     return local
 
