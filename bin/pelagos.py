@@ -149,14 +149,14 @@ def provision_node():
     app.logger.info("Data for provision: [" + str(request.get_data(as_text=True)) + "]")
     os = request.form['os']
     node_id = request.form['node']
-    add_sls = ''
+    sls = ''
     app.logger.info(
         'Provision node [{}]  with OS [{}]'.format(node_id, os))
 
-    if 'add_sls' in request.form:
-        add_sls = request.form['add_sls']
+    if 'extra_sls' in request.form:
+        sls = request.form['extra_sls']
         app.logger.info(
-            'Additinal salt script[{}]'.format(add_sls))
+            'Additinal salt script[{}]'.format(sls))
 
     node = _check_input_node(node_id)
     os_id = _check_input_os(os)
@@ -166,7 +166,7 @@ def provision_node():
         elif app.simulate_mode == 'medium':
             pxelinux_cfg.provision_node_simulate(node, os)
         else:
-            pxelinux_cfg.provision_node(node, os, add_sls=add_sls.split())
+            pxelinux_cfg.provision_node(node, os, extra_sls=sls.split())
     except hw_node.TimeoutException as tmt_excp:
         msg_tmt_excp= 'Caught TimeoutException %s' % tmt_excp
         app.logger.info(msg_tmt_excp)

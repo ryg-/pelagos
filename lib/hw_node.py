@@ -59,7 +59,7 @@ def init():
             network_manager.get_option('sls_list').split(',')]
 
 
-def  get_ipmi_cycle_cmd(ip, user='', passwd=''):
+def  get_ipmi_cycle_cmd(ip, user=None, passwd=None):
     if not user:
         user = ipmi_user
     if not passwd:
@@ -98,7 +98,7 @@ def power_cycle(node):
                    local.stderr))
 
 
-def read_last_meaningful_line(filepath):
+def last_nonempty_line(filepath):
     """Return last non empty and not auxillary conman line
         filepath: path to file for finding last line
         Function is using some magic string which are defined
@@ -108,10 +108,13 @@ def read_last_meaningful_line(filepath):
     res = tail.shell('tail -n 100 ' + filepath,
                     stop=True, quiet=True, die=False)
     for str in reversed(tail.stdout.rstrip().splitlines()):
-        if not (str is '' or
-            str.startswith('<ConMan> Console') or
-            re.search("\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d\s*$" , str)):
+        if  str is '' or \
+            str.startswith('<ConMan> Console') or \
+            re.search("\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d\s*$" , str):
+            continue
+        else:
             return str
+
     return 'no_meaningful_line_found'
 
 def cold_restart(mode):
@@ -123,10 +126,17 @@ def wait_node_is_ready(node,
                         max_cold_restart=3,
                         port_lookup=22,
                         port_lookup_timeout=None,
-                        port_lookup_attempts=None ):
-    """ Return sign if node booted or not in timeout
-        timeout=overall timeout for node boot and start ssh
-        (ssh starts after end of kiwi provisioning)
+                        port_lookup_attempts=None):
+    """ Return true if node(and ssh) start in time
+        Raise exceptions in other cases
+
+        Parameters:
+        timeout: overall timeout for boot and start ssh
+            (ssh starts after end of kiwi provisioning)
+        conman_line_max_age: how long last conman line
+            coud be not changed (mean node stuck)
+        max_cold_restart: maximum nuber of cold restarts
+
     """
     if port_lookup_timeout is None:
         port_lookup_timeout = default_port_lookup_timeout
@@ -144,7 +154,7 @@ def wait_node_is_ready(node,
     while starttime+timeout > time.time():
 
         # check last line in conman log
-        new_conman_line = read_last_meaningful_line(conmanfile)
+        new_conman_line = last_nonempty_line(conmanfile)
         if conman_line != new_conman_line:
             #logging.debug("New log detected:"+new_conman_line)
             conman_line = new_conman_line
@@ -178,16 +188,16 @@ def wait_node_is_ready(node,
     raise TimeoutException("{} have not started in timeout {}".format(
         node['node'], timeout))
 
-def minimal_needed_configuration(node, timeout=60, add_sls=[]):
-    sls_list.extend(add_sls)
-    logging.debug('Executing salt script[{}]'.format(sls_list))
-    for sls in sls_list:
+def minimal_needed_configuration(node, timeout=60, extra_sls=[]):
+    full_sls = sls_list + extra_sls
+    logging.debug('Executing salt script[{}]'.format(full_sls))
+    for sls in full_sls:
         local = LocalNode()
         local.pwd()
         local.shell(get_salt_cmd(sls, node['node']))
         print('Status:', local.status)
         print('Output:', local.stdout.rstrip())
         print('Errors:', local.stderr)
-    logging.debug('Executed salt script[{}]'.format(sls_list))
+    logging.debug('Executed salt script[{}]'.format(full_sls))
     return local
 
