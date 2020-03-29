@@ -125,7 +125,7 @@ def get_boot_record_for_os(node, os_id):
         # split str same as 'sle-15.1-0.1.1-29.1' to version
         version = \
             re.search(r'(\w+)\-(\d+)\.(\d+)\-(\d+\.\d+\.\d+)\-(\d+\.\d+)',
-                      os_id)
+                      get_os_dir(os_id))
         if version:
             image = "minimal-%s-%s-sp%s.x86_64-%s.xz" % (
                     version.group(1),

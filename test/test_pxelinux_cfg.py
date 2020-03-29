@@ -45,6 +45,7 @@ class PxelinuxCfgTest(unittest.TestCase):
 
     def test_get_boot_record_for_os(self):
         os_id = 'sle-15.1-0.1.1-29.1'
+        os.makedirs(tftp_cfg_dir + '/' + os_id)
         boot = pxelinux_cfg.get_boot_record_for_os(
             {'node': 'test_node'}, os_id)
         logging.debug("Boot records: " + boot)
@@ -57,6 +58,8 @@ class PxelinuxCfgTest(unittest.TestCase):
                          'console=tty1 console=ttyS1,11520', 'check tty')
 
     def test_prepare_tftp(self):
+        tdir = 'sle-15.1-0.1.1-29.1'
+        os.makedirs(tftp_cfg_dir + '/' + tdir)
         network_manager.data_file = 'test/test_network_cfg.json'
         node = network_manager.get_node_by_name('test_node')
 
