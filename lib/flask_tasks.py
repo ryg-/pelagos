@@ -146,8 +146,8 @@ def get_status(id):
     repr(task)
     if 'rv' not in task:
         return '', 202, {'Location': url_for('tasks.get_status', id=id),
-                         'Start time': task['starttime'],
-                         'End time': task['endtime'],
+                         'StartTime': task['starttime'],
+                         'EndTime': task['endtime'],
                          'TaskID': id,
                          'status': 'not completed'}
     return task['rv']
